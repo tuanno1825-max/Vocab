@@ -1,0 +1,5 @@
+node_modules/
+.env
+vocab.db
+*.log
+.playwright-mcp/

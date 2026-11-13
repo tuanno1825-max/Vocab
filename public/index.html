@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Vocab Notebook — Sổ tay từ vựng theo Topic</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='36'%3EV%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- AUTH VIEW -->
+  <main id="auth-view" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="brand-badge">V</span>
+        <div>
+          <h1>Vocab Notebook</h1>
+          <p>Sổ tay từ vựng theo Topic, Collocation &amp; Họ từ</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" data-auth-mode="login">Đăng nhập</button>
+        <button type="button" class="auth-tab" data-auth-mode="register">Đăng ký</button>
+      </div>
+
+      <form id="auth-form" class="auth-form">
+        <div class="field">
+          <label for="auth-username">Tên đăng nhập</label>
+          <input id="auth-username" type="text" autocomplete="username" placeholder="vd: minhanh" required minlength="3" />
+        </div>
+        <div class="field">
+          <label for="auth-password">Mật khẩu</label>
+          <input id="auth-password" type="password" autocomplete="current-password" placeholder="Tối thiểu 6 ký tự" required minlength="6" />
+        </div>
+        <p id="auth-error" class="form-error hidden"></p>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-full">Đăng nhập</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- APP VIEW -->
+  <div id="app-view" class="app-shell hidden">
+    <!-- Mobile Drawer Backdrop -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+
+    <!-- Sidebar / Hidden Mobile Menu -->
+    <aside id="sidebar" class="sidebar" aria-label="Danh sách Topic">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <span class="brand-badge small">V</span>
+          <span class="brand-name">Vocab Notebook</span>
+        </div>
+        <button type="button" id="close-drawer-btn" class="icon-btn mobile-only" aria-label="Đóng menu">✕</button>
+      </div>
+
+      <div class="sidebar-section-header">
+        <span>TOPICS CỦA BẠN</span>
+        <button type="button" id="new-topic-btn" class="btn btn-sm btn-primary">+ Topic</button>
+      </div>
+
+      <nav id="topic-list" class="topic-list"></nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-top">
+          <div class="user-pill">
+            <span id="user-avatar" class="user-avatar">U</span>
+            <div class="user-meta">
+              <strong id="user-display-name">user</strong>
+              <small id="user-role-label">Tài khoản cá nhân</small>
+            </div>
+          </div>
+          <button type="button" id="logout-btn" class="btn btn-ghost btn-sm">Đăng xuất</button>
+        </div>
+        <button type="button" id="open-admin-btn" class="btn btn-outline btn-sm btn-full hidden">👑 Quản trị tài khoản</button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button type="button" id="open-drawer-btn" class="icon-btn mobile-only" aria-label="Mở menu Topic">☰</button>
+          <div class="topic-heading">
+            <h2 id="current-topic-title">Đang tải...</h2>
+            <p id="current-topic-desc" class="topic-subtitle"></p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button type="button" id="test-btn" class="btn btn-outline btn-sm" title="Kiểm tra từ vựng">📝 Test</button>
+          <button type="button" id="flashcard-btn" class="btn btn-outline btn-sm" title="Ôn tập Flashcard">🎴 <span class="desktop-only">Ôn tập</span></button>
+          <button type="button" id="export-csv-btn" class="btn btn-outline btn-sm desktop-only" title="Xuất file CSV mở bằng Excel">⬇ CSV</button>
+          <button type="button" id="add-word-btn" class="btn btn-primary">+ Thêm từ</button>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input id="search-input" type="search" placeholder="Tìm từ mới, nghĩa, collocation, họ từ..." />
+        </div>
+
+        <div class="toolbar-right">
+          <span id="word-count-badge" class="count-badge">0 từ</span>
+          <div class="view-toggle desktop-only" role="group" aria-label="Chế độ xem">
+            <button type="button" class="view-btn active" data-view="table">Bảng</button>
+            <button type="button" class="view-btn" data-view="cards">Thẻ</button>
+          </div>
+          <button type="button" id="edit-topic-btn" class="icon-btn" title="Sửa tên Topic">✏️</button>
+          <button type="button" id="delete-topic-btn" class="icon-btn danger" title="Xóa Topic">🗑️</button>
+        </div>
+      </div>
+
+      <section id="words-container" class="words-container"></section>
+    </div>
+  </div>
+
+  <!-- TOPIC MODAL -->
+  <div id="topic-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3 id="topic-modal-title">Tạo Topic mới</h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="topic-modal">✕</button>
+      </div>
+      <form id="topic-form" class="modal-body">
+        <input type="hidden" id="topic-id-input" />
+        <div class="field">
+          <label for="topic-name-input">Tên Topic *</label>
+          <input id="topic-name-input" type="text" placeholder="vd: Environment, Technology, Hôm nay 13/11..." required />
+        </div>
+        <div class="field">
+          <label for="topic-desc-input">Ghi chú ngắn</label>
+          <input id="topic-desc-input" type="text" placeholder="vd: Từ vựng IELTS Writing Task 2" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-close-modal="topic-modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Topic</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- WORD MODAL -->
+  <div id="word-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="word-modal-title">Thêm từ vựng mới</h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="word-modal">✕</button>
+      </div>
+      <form id="word-form" class="modal-body">
+        <input type="hidden" id="word-id-input" />
+
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="word-topic-select">Topic *</label>
+            <select id="word-topic-select" required></select>
+          </div>
+          <div class="field">
+            <label for="word-meaning-input">Nghĩa tiếng Việt *</label>
+            <input id="word-meaning-input" type="text" placeholder="vd: phụ thuộc, tin cậy" required />
+          </div>
+        </div>
+
+        <div class="form-grid-4">
+          <div class="field span-2">
+            <label for="word-text-input">Từ mới *</label>
+            <input id="word-text-input" type="text" placeholder="vd: rely" required />
+          </div>
+          <div class="field">
+            <label for="word-pos-select">Từ loại</label>
+            <select id="word-pos-select">
+              <option value="v">v (động từ)</option>
+              <option value="n">n (danh từ)</option>
+              <option value="adj">adj (tính từ)</option>
+              <option value="adv">adv (trạng từ)</option>
+              <option value="phrase">cụm từ</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="word-level-select">Level</label>
+            <select id="word-level-select">
+              <option value="A1">A1</option>
+              <option value="A2">A2</option>
+              <option value="B1">B1</option>
+              <option value="B2" selected>B2</option>
+              <option value="C1">C1</option>
+              <option value="C2">C2</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="word-ipa-input">Phiên âm / Trọng âm (tùy chọn)</label>
+          <input id="word-ipa-input" type="text" placeholder="vd: /rɪˈlaɪ/" />
+        </div>
+
+        <!-- Synonyms -->
+        <div class="repeater-block">
+          <div class="repeater-header">
+            <label>Từ đồng nghĩa</label>
+            <button type="button" id="add-synonym-btn" class="btn btn-sm btn-outline">+ Thêm</button>
+          </div>
+          <div id="synonyms-list" class="repeater-list"></div>
+        </div>
+
+        <!-- Collocations -->
+        <div class="repeater-block">
+          <div class="repeater-header">
+            <label>Collocation (Cụm từ đi kèm)</label>
+            <button type="button" id="add-collocation-btn" class="btn btn-sm btn-outline">+ Thêm</button>
+          </div>
+          <div id="collocations-list" class="repeater-list"></div>
+        </div>
+
+        <!-- Word Families -->
+        <div class="repeater-block">
+          <div class="repeater-header">
+            <label>Họ từ (Word Family: n, v, adj, adv...)</label>
+            <button type="button" id="add-family-btn" class="btn btn-sm btn-outline">+ Thêm</button>
+          </div>
+          <div id="families-list" class="repeater-list"></div>
+        </div>
+
+        <div class="field">
+          <label for="word-example-input">Example (Câu ví dụ)</label>
+          <textarea id="word-example-input" rows="2" placeholder="vd: Many people overrely on their phones for daily information."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-close-modal="word-modal">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu từ vựng</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- FLASHCARD MODAL -->
+  <div id="flashcard-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3>Ôn tập Flashcard <span id="fc-progress" class="count-badge">1/1</span></h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="flashcard-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="fc-card" class="flashcard" tabindex="0">
+          <div id="fc-front" class="fc-face"></div>
+          <div id="fc-back" class="fc-face hidden"></div>
+        </div>
+        <p class="fc-hint">Chạm vào thẻ để lật xem nghĩa, họ từ &amp; ví dụ</p>
+        <div class="fc-controls">
+          <button type="button" id="fc-prev-btn" class="btn btn-outline">← Trước</button>
+          <button type="button" id="fc-flip-btn" class="btn btn-primary">Lật thẻ</button>
+          <button type="button" id="fc-next-btn" class="btn btn-outline">Tiếp →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEST MODAL -->
+  <div id="test-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3>Kiểm tra từ vựng <span id="test-progress-badge" class="count-badge hidden">1/1</span></h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="test-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Step 1: Select words -->
+        <div id="test-setup-step">
+          <div class="test-mode-row">
+            <label class="radio-pill">
+              <input type="radio" name="test-mode" value="quiz" checked /> Trắc nghiệm
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="test-mode" value="type" /> Tự gõ từ
+            </label>
+          </div>
+
+          <div class="test-select-actions">
+            <span class="card-section-label">Chọn từ muốn test (<span id="test-selected-count">0</span>)</span>
+            <div class="row-actions">
+              <button type="button" id="test-pick-unmastered" class="btn btn-sm btn-outline">Chưa thuộc</button>
+              <button type="button" id="test-pick-all" class="btn btn-sm btn-outline">Tất cả</button>
+              <button type="button" id="test-pick-none" class="btn btn-sm btn-ghost">Bỏ chọn</button>
+            </div>
+          </div>
+
+          <div id="test-word-checklist" class="test-checklist"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-close-modal="test-modal">Đóng</button>
+            <button type="button" id="start-test-btn" class="btn btn-primary">Bắt đầu Test</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Running quiz -->
+        <div id="test-run-step" class="hidden">
+          <div class="test-question-box">
+            <div class="card-section-label">Nghĩa tiếng Việt</div>
+            <div id="test-q-meaning" class="test-q-meaning"></div>
+            <div id="test-q-hint" class="ipa-text"></div>
+          </div>
+
+          <div id="test-quiz-options" class="test-options"></div>
+
+          <form id="test-type-form" class="hidden">
+            <div class="field">
+              <label for="test-type-input">Nhập từ tiếng Anh tương ứng</label>
+              <input id="test-type-input" type="text" autocomplete="off" placeholder="Gõ từ tiếng Anh..." />
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Kiểm tra</button>
+          </form>
+
+          <div id="test-feedback" class="test-feedback hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" id="test-next-btn" class="btn btn-primary hidden">Câu tiếp theo →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Result -->
+        <div id="test-result-step" class="hidden">
+          <div class="test-score-card">
+            <div id="test-score-big" class="test-score-big">0/0</div>
+            <p id="test-score-msg"></p>
+          </div>
+          <div id="test-wrong-list" class="test-wrong-list"></div>
+          <div class="modal-footer" style="flex-wrap: wrap;">
+            <button type="button" id="test-mark-mastered-btn" class="btn btn-outline hidden">✓ Đánh dấu câu đúng là Đã thuộc</button>
+            <button type="button" id="test-retry-btn" class="btn btn-primary">Test lại</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN MODAL -->
+  <div id="admin-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3>👑 Quản trị tài khoản</h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="admin-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="admin-create-form" class="repeater-block">
+          <div class="repeater-header">
+            <label>Tạo tài khoản mới cho bạn bè</label>
+          </div>
+          <div class="form-grid-4">
+            <div class="field" style="margin-bottom:0;">
+              <input id="admin-new-username" type="text" placeholder="Tên đăng nhập (vd: banbe1)" required minlength="3" />
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <input id="admin-new-password" type="password" placeholder="Mật khẩu (>= 6 ký tự)" required minlength="6" />
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <select id="admin-new-role">
+                <option value="user">Người dùng</option>
+                <option value="admin">Quản trị viên</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:10px; flex-wrap:wrap;">
+            <label class="checkbox-inline">
+              <input id="admin-seed-sample" type="checkbox" checked /> Tạo sẵn Topic mẫu
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">+ Tạo tài khoản</button>
+          </div>
+          <p id="admin-error" class="form-error hidden" style="margin-top:10px; margin-bottom:0;"></p>
+        </form>
+
+        <div id="admin-users-list" class="admin-users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
