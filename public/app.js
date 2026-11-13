@@ -84,11 +84,7 @@ function setAuthMode(mode) {
 
 async function checkSession() {
   try {
-    const [cfg, me] = await Promise.all([api('/api/auth/config'), api('/api/auth/me')]);
-    if (!cfg.allowSelfRegister) {
-      const regTab = document.querySelector('[data-auth-mode="register"]');
-      if (regTab) regTab.classList.add('hidden');
-    }
+    const me = await api('/api/auth/me');
     if (me.user) {
       state.user = me.user;
       showApp();
@@ -699,10 +695,6 @@ function exportCsv() {
 }
 
 // --- Event Listeners ---
-document.querySelectorAll('.auth-tab').forEach((btn) => {
-  btn.addEventListener('click', () => setAuthMode(btn.dataset.authMode));
-});
-
 $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('auth-error').classList.add('hidden');
@@ -710,8 +702,7 @@ $('auth-form').addEventListener('submit', async (e) => {
   const password = $('auth-password').value;
 
   try {
-    const endpoint = state.authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    const data = await api(endpoint, {
+    const data = await api('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });

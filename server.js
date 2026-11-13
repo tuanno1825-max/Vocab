@@ -11,7 +11,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/vocab_notebook';
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-const ALLOW_SELF_REGISTER = process.env.ALLOW_SELF_REGISTER !== 'false';
+const ALLOW_SELF_REGISTER = process.env.ALLOW_SELF_REGISTER === 'true';
+const INITIAL_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const INITIAL_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // --- Mongoose Models ---
 const userSchema = new mongoose.Schema(
@@ -607,9 +609,34 @@ app.delete('/api/words/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+async function ensureInitialAdmin() {
+  const adminCount = await User.countDocuments({ role: 'admin' });
+  if (adminCount > 0) return;
+
+  const username = INITIAL_ADMIN_USERNAME.trim();
+  const usernameLower = username.toLowerCase();
+  const existing = await User.findOne({ usernameLower });
+  if (existing) {
+    existing.role = 'admin';
+    await existing.save();
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(INITIAL_ADMIN_PASSWORD, 10);
+  const admin = await User.create({
+    username,
+    usernameLower,
+    passwordHash,
+    role: 'admin',
+  });
+  await seedStarterDataForUser(admin._id);
+  console.log(`Initial admin account created: ${username}`);
+}
+
 async function start() {
   await mongoose.connect(MONGODB_URI);
   console.log('Connected to MongoDB');
+  await ensureInitialAdmin();
   app.listen(PORT, () => {
     console.log(`Vocab Notebook server running at http://localhost:${PORT}`);
   });

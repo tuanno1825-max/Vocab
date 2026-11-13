@@ -17,4 +17,6 @@ Mở trình duyệt tại `http://localhost:3000`. Tài khoản đăng ký đầ
 - `PORT`: Cổng chạy server (mặc định `3000`)
 - `MONGODB_URI`: Chuỗi kết nối MongoDB hoặc **MongoDB Atlas** (`mongodb+srv://...`)
 - `JWT_SECRET`: Chuỗi bí mật ký token đăng nhập
-- `ALLOW_SELF_REGISTER`: `true` (cho phép tự đăng ký) hoặc `false` (chỉ Admin tạo tài khoản)
+- `ALLOW_SELF_REGISTER`: Mặc định `false` (tắt đăng ký tự do, chỉ Admin tạo tài khoản)
+- `ADMIN_USERNAME`: Tên tài khoản Admin khởi tạo ban đầu (mặc định `admin`)
+- `ADMIN_PASSWORD`: Mật khẩu Admin khởi tạo ban đầu (mặc định `admin123` — nên đặt mật khẩu riêng khi deploy)
