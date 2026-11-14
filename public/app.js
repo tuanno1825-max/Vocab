@@ -150,6 +150,7 @@ function renderTopics() {
   $('edit-topic-btn').disabled = !active;
   $('delete-topic-btn').disabled = !active;
   $('add-word-btn').disabled = state.topics.length === 0;
+  $('bulk-import-btn').disabled = state.topics.length === 0;
 }
 
 async function selectTopic(topicId) {
@@ -1056,6 +1057,116 @@ $('admin-users-list').addEventListener('click', async (e) => {
 });
 
 $('export-csv-btn').addEventListener('click', exportCsv);
+
+// --- Bulk Import ---
+function openBulkModal() {
+  if (state.topics.length === 0) {
+    alert('Hãy tạo ít nhất 1 Topic trước khi nhập từ.');
+    return;
+  }
+  $('bulk-topic-select').innerHTML = state.topics
+    .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`)
+    .join('');
+  if (state.activeTopicId) {
+    $('bulk-topic-select').value = String(state.activeTopicId);
+  }
+  $('bulk-ai-error').classList.add('hidden');
+  $('bulk-json-error').classList.add('hidden');
+  openModal('bulk-modal');
+}
+
+$('bulk-import-btn').addEventListener('click', openBulkModal);
+
+document.querySelectorAll('[data-bulk-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.bulkTab;
+    document.querySelectorAll('[data-bulk-tab]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.bulkTab === tab);
+    });
+    $('bulk-ai-panel').classList.toggle('hidden', tab !== 'ai');
+    $('bulk-json-panel').classList.toggle('hidden', tab !== 'json');
+  });
+});
+
+$('bulk-ai-submit-btn').addEventListener('click', async () => {
+  const errEl = $('bulk-ai-error');
+  errEl.classList.add('hidden');
+  const topicId = $('bulk-topic-select').value;
+  const rawText = $('bulk-raw-input').value.trim();
+  if (!rawText) {
+    errEl.textContent = 'Vui lòng dán danh sách từ vựng.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = $('bulk-ai-submit-btn');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang phân tích...';
+
+  try {
+    const res = await api('/api/words/bulk-ai', {
+      method: 'POST',
+      body: JSON.stringify({ topicId, rawText }),
+    });
+    state.activeTopicId = topicId;
+    $('bulk-raw-input').value = '';
+    closeModal('bulk-modal');
+    await loadTopics();
+    alert(`Đã thêm thành công ${res.addedCount} từ bằng AI!`);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+});
+
+$('bulk-json-submit-btn').addEventListener('click', async () => {
+  const errEl = $('bulk-json-error');
+  errEl.classList.add('hidden');
+  const topicId = $('bulk-topic-select').value;
+
+  let parsed;
+  try {
+    parsed = JSON.parse($('bulk-json-input').value.trim());
+  } catch {
+    errEl.textContent = 'JSON không hợp lệ. Hãy kiểm tra lại dấu ngoặc.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const words = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.words) ? parsed.words : null;
+  if (!words || words.length === 0) {
+    errEl.textContent = 'JSON phải là một mảng [...] hoặc { "words": [...] }.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const res = await api('/api/words/bulk-json', {
+      method: 'POST',
+      body: JSON.stringify({ topicId, words }),
+    });
+    state.activeTopicId = topicId;
+    $('bulk-json-input').value = '';
+    closeModal('bulk-modal');
+    await loadTopics();
+    alert(`Đã nhập thành công ${res.addedCount} từ!`);
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  }
+});
+
+$('copy-prompt-btn').addEventListener('click', async () => {
+  const promptText = `Hãy chuyển danh sách từ vựng dưới đây thành JSON array. Mỗi phần tử gồm: word, pos (v/n/adj/adv/phrase), level (A1-C2), ipa, meaning (tiếng Việt), synonyms ([{word, level}] chỉ lấy từ band thấp A1-B1), collocations ([{phrase, tone: "neutral"|"negative"|"positive"}]), wordFamilies ([{word, pos, prep, tone}]), example (1 câu ngắn dùng từ A1-A2). Chỉ trả về JSON array thuần.\n\nDanh sách từ:\n`;
+  await navigator.clipboard.writeText(promptText);
+  const btn = $('copy-prompt-btn');
+  btn.textContent = '✓ Đã copy!';
+  setTimeout(() => (btn.textContent = '📋 Copy Prompt mẫu'), 1800);
+});
 
 window.addEventListener('resize', () => {
   renderWords();

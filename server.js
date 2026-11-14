@@ -14,6 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('he
 const ALLOW_SELF_REGISTER = process.env.ALLOW_SELF_REGISTER === 'true';
 const INITIAL_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const INITIAL_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const AI_API_KEY = process.env.AI_API_KEY || '';
+const AI_BASE_URL = (process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
+const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
 
 // --- Mongoose Models ---
 const userSchema = new mongoose.Schema(
@@ -607,6 +610,155 @@ app.delete('/api/words/:id', requireAuth, async (req, res) => {
     return res.status(404).json({ error: 'Không tìm thấy từ vựng.' });
   }
   res.json({ ok: true });
+});
+
+app.post('/api/words/bulk-json', requireAuth, async (req, res) => {
+  const topicId = String(req.body?.topicId || '').trim();
+  const items = Array.isArray(req.body?.words) ? req.body.words : [];
+
+  if (!mongoose.isValidObjectId(topicId)) {
+    return res.status(400).json({ error: 'Topic không hợp lệ.' });
+  }
+  const topic = await Topic.findOne({ _id: topicId, userId: req.user.id }).lean();
+  if (!topic) {
+    return res.status(404).json({ error: 'Topic không tồn tại.' });
+  }
+  if (items.length === 0 || items.length > 100) {
+    return res.status(400).json({ error: 'Danh sách phải có từ 1 đến 100 từ.' });
+  }
+
+  const docsToInsert = items
+    .map((item) => sanitizeWordPayload({ ...item, topicId }))
+    .filter((d) => d.word && d.meaning)
+    .map((d) => ({
+      userId: req.user.id,
+      topicId: d.topicId,
+      word: d.word,
+      pos: d.pos,
+      level: d.level,
+      ipa: d.ipa,
+      meaning: d.meaning,
+      synonyms: d.synonyms,
+      collocations: d.collocations,
+      wordFamilies: d.wordFamilies,
+      example: d.example,
+      mastered: false,
+    }));
+
+  if (docsToInsert.length === 0) {
+    return res.status(400).json({ error: 'Không có từ hợp lệ để nhập (cần ít nhất word và meaning).' });
+  }
+
+  const inserted = await Word.insertMany(docsToInsert);
+  res.status(201).json({ addedCount: inserted.length, words: inserted.map(serializeWord) });
+});
+
+app.post('/api/words/bulk-ai', requireAuth, async (req, res) => {
+  if (!AI_API_KEY) {
+    return res.status(400).json({
+      error: 'Chưa cấu hình AI_API_KEY trên server. Hãy thêm biến AI_API_KEY (Groq/OpenRouter) trên Render.',
+    });
+  }
+
+  const topicId = String(req.body?.topicId || '').trim();
+  const rawText = String(req.body?.rawText || '').trim();
+
+  if (!mongoose.isValidObjectId(topicId)) {
+    return res.status(400).json({ error: 'Topic không hợp lệ.' });
+  }
+  const topic = await Topic.findOne({ _id: topicId, userId: req.user.id }).lean();
+  if (!topic) {
+    return res.status(404).json({ error: 'Topic không tồn tại.' });
+  }
+
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return res.status(400).json({ error: 'Vui lòng dán ít nhất 1 dòng từ vựng.' });
+  }
+  if (lines.length > 40) {
+    return res.status(400).json({ error: 'Mỗi lần nhập AI tối đa 40 dòng để tránh quá tải.' });
+  }
+
+  const systemPrompt = `You are an English vocabulary assistant for Vietnamese learners.
+Given a list of English words/phrases (optionally with Vietnamese meanings), return a valid JSON object with key "words" containing an array of items.
+Each item MUST have this exact structure:
+{
+  "word": "string (the English word or phrase)",
+  "pos": "v" | "n" | "adj" | "adv" | "phrase",
+  "level": "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
+  "ipa": "string (IPA pronunciation)",
+  "meaning": "string (concise Vietnamese meaning)",
+  "synonyms": [{"word": "string", "level": "A1" | "A2" | "B1"}],
+  "collocations": [{"phrase": "string", "tone": "neutral" | "negative" | "positive"}],
+  "wordFamilies": [{"word": "string", "pos": "n" | "v" | "adj" | "adv", "prep": "string", "tone": "neutral" | "negative" | "positive"}],
+  "example": "string (1 short, simple A1-A2 level sentence using the word)"
+}
+CRITICAL RULES:
+- For "synonyms", ALWAYS pick MUCH SIMPLER, lower-band words (A1, A2, or B1) so the learner can easily understand and compare.
+- For "example", keep the sentence short and simple using A1-A2 vocabulary around the target word.
+- Mark "tone" as "negative" for negative-connotation words/phrases (like overrely, inaccurate, burden), "positive" for positive ones, else "neutral".
+- Return ONLY valid JSON.`;
+
+  const aiRes = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: lines.join('\n') },
+      ],
+    }),
+  });
+
+  const aiData = await aiRes.json().catch(() => ({}));
+  if (!aiRes.ok) {
+    const msg = aiData?.error?.message || `AI API trả lỗi (${aiRes.status}).`;
+    return res.status(502).json({ error: msg });
+  }
+
+  const content = aiData?.choices?.[0]?.message?.content || '';
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return res.status(502).json({ error: 'AI trả về dữ liệu không đúng định dạng JSON. Hãy thử lại.' });
+  }
+
+  const items = Array.isArray(parsed?.words) ? parsed.words : [];
+  const docsToInsert = items
+    .map((item) => sanitizeWordPayload({ ...item, topicId }))
+    .filter((d) => d.word && d.meaning)
+    .map((d) => ({
+      userId: req.user.id,
+      topicId: d.topicId,
+      word: d.word,
+      pos: d.pos,
+      level: d.level,
+      ipa: d.ipa,
+      meaning: d.meaning,
+      synonyms: d.synonyms,
+      collocations: d.collocations,
+      wordFamilies: d.wordFamilies,
+      example: d.example,
+      mastered: false,
+    }));
+
+  if (docsToInsert.length === 0) {
+    return res.status(502).json({ error: 'AI không tách được từ nào hợp lệ. Hãy thử lại.' });
+  }
+
+  const inserted = await Word.insertMany(docsToInsert);
+  res.status(201).json({ addedCount: inserted.length, words: inserted.map(serializeWord) });
 });
 
 async function ensureInitialAdmin() {

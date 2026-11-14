@@ -86,6 +86,7 @@
           <button type="button" id="test-btn" class="btn btn-outline btn-sm" title="Kiểm tra từ vựng">📝 Test</button>
           <button type="button" id="flashcard-btn" class="btn btn-outline btn-sm" title="Ôn tập Flashcard">🎴 <span class="desktop-only">Ôn tập</span></button>
           <button type="button" id="export-csv-btn" class="btn btn-outline btn-sm desktop-only" title="Xuất file CSV mở bằng Excel">⬇ CSV</button>
+          <button type="button" id="bulk-import-btn" class="btn btn-outline btn-sm" title="Nhập nhiều từ cùng lúc">📥 <span class="desktop-only">Nhập nhanh</span></button>
           <button type="button" id="add-word-btn" class="btn btn-primary">+ Thêm từ</button>
         </div>
       </header>
@@ -365,6 +366,55 @@
         </form>
 
         <div id="admin-users-list" class="admin-users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULK IMPORT MODAL -->
+  <div id="bulk-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3>📥 Nhập nhanh hàng loạt</h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="bulk-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="bulk-topic-select">Lưu vào Topic *</label>
+          <select id="bulk-topic-select"></select>
+        </div>
+
+        <div class="auth-tabs" style="margin-bottom:14px;">
+          <button type="button" class="auth-tab active" data-bulk-tab="ai">✨ Tự động bằng AI</button>
+          <button type="button" class="auth-tab" data-bulk-tab="json">{ } Dán JSON</button>
+        </div>
+
+        <div id="bulk-ai-panel">
+          <div class="field">
+            <label for="bulk-raw-input">Dán danh sách từ (mỗi dòng 1 từ hoặc dạng <code>từ: nghĩa</code>, tối đa 40 dòng)</label>
+            <textarea id="bulk-raw-input" rows="8" placeholder="effectively: Hiệu quả&#10;personalized: Cá nhân hoá&#10;diminish: Giảm bớt"></textarea>
+          </div>
+          <p class="ipa-text" style="margin:0 0 10px;">AI sẽ tự điền từ loại, IPA, từ đồng nghĩa band A1–B1, collocation, họ từ và ví dụ ngắn.</p>
+          <p id="bulk-ai-error" class="form-error hidden"></p>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-close-modal="bulk-modal">Đóng</button>
+            <button type="button" id="bulk-ai-submit-btn" class="btn btn-primary">✨ Phân tích &amp; Lưu</button>
+          </div>
+        </div>
+
+        <div id="bulk-json-panel" class="hidden">
+          <div class="field">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <label for="bulk-json-input">Dán mảng JSON (không cần API key)</label>
+              <button type="button" id="copy-prompt-btn" class="btn btn-sm btn-outline">📋 Copy Prompt mẫu</button>
+            </div>
+            <textarea id="bulk-json-input" rows="8" placeholder='[{"word":"rely","pos":"v","level":"B2","meaning":"phụ thuộc","synonyms":[{"word":"depend","level":"B1"}],"collocations":[{"phrase":"rely on sb","tone":"neutral"}],"wordFamilies":[{"word":"reliance","pos":"n","prep":"on","tone":"neutral"}],"example":"I rely on you."}]'></textarea>
+          </div>
+          <p id="bulk-json-error" class="form-error hidden"></p>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-close-modal="bulk-modal">Đóng</button>
+            <button type="button" id="bulk-json-submit-btn" class="btn btn-primary">📥 Nhập JSON</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

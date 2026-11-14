@@ -20,3 +20,6 @@ Mở trình duyệt tại `http://localhost:3000`. Tài khoản đăng ký đầ
 - `ALLOW_SELF_REGISTER`: Mặc định `false` (tắt đăng ký tự do, chỉ Admin tạo tài khoản)
 - `ADMIN_USERNAME`: Tên tài khoản Admin khởi tạo ban đầu (mặc định `admin`)
 - `ADMIN_PASSWORD`: Mật khẩu Admin khởi tạo ban đầu (mặc định `admin123` — nên đặt mật khẩu riêng khi deploy)
+- `AI_API_KEY`: API Key miễn phí từ **Groq** (`console.groq.com`), **OpenRouter**, hoặc **Cerebras** cho tính năng **📥 Nhập nhanh bằng AI**
+- `AI_BASE_URL`: Mặc định `https://api.groq.com/openai/v1`
+- `AI_MODEL`: Mặc định `llama-3.3-70b-versatile`
