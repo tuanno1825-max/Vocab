@@ -98,6 +98,11 @@
         </div>
 
         <div class="toolbar-right">
+          <div class="view-toggle" role="group" aria-label="Lọc trạng thái">
+            <button type="button" class="filter-btn active" data-filter="all">Tất cả</button>
+            <button type="button" class="filter-btn" data-filter="unmastered">Chưa thuộc</button>
+            <button type="button" class="filter-btn" data-filter="mastered">Đã thuộc</button>
+          </div>
           <span id="word-count-badge" class="count-badge">0 từ</span>
           <div class="view-toggle desktop-only" role="group" aria-label="Chế độ xem">
             <button type="button" class="view-btn active" data-view="table">Bảng</button>
@@ -239,6 +244,15 @@
         <button type="button" class="icon-btn modal-close" data-close-modal="flashcard-modal">✕</button>
       </div>
       <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+          <label class="checkbox-inline">
+            <input type="checkbox" id="fc-only-unmastered" /> Chỉ ôn từ chưa thuộc
+          </label>
+          <div class="row-actions">
+            <button type="button" id="fc-speak-btn" class="btn btn-sm btn-outline">🔊 Phát âm</button>
+            <button type="button" id="fc-toggle-mastered-btn" class="btn btn-sm btn-outline">✓ Đã thuộc</button>
+          </div>
+        </div>
         <div id="fc-card" class="flashcard" tabindex="0">
           <div id="fc-front" class="fc-face"></div>
           <div id="fc-back" class="fc-face hidden"></div>
@@ -269,6 +283,9 @@
             </label>
             <label class="radio-pill">
               <input type="radio" name="test-mode" value="type" /> Tự gõ từ
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="test-mode" value="blank" /> Điền vào ví dụ
             </label>
           </div>
 

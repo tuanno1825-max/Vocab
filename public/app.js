@@ -5,6 +5,7 @@ const state = {
   activeTopicId: null,
   words: [],
   viewMode: window.innerWidth < 900 ? 'cards' : 'table',
+  filterMode: 'all',
   searchQuery: '',
   flashcards: [],
   fcIndex: 0,
@@ -202,8 +203,15 @@ function masteredButtonHtml(w) {
   </button>`;
 }
 
+function getFilteredWords() {
+  if (state.filterMode === 'unmastered') return state.words.filter((w) => !w.mastered);
+  if (state.filterMode === 'mastered') return state.words.filter((w) => w.mastered);
+  return state.words;
+}
+
 function renderWords() {
-  $('word-count-badge').textContent = `${state.words.length} từ`;
+  const visibleWords = getFilteredWords();
+  $('word-count-badge').textContent = `${visibleWords.length}/${state.words.length} từ`;
   const container = $('words-container');
 
   if (!state.activeTopicId) {
@@ -216,11 +224,11 @@ function renderWords() {
     return;
   }
 
-  if (state.words.length === 0) {
+  if (visibleWords.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <h3>Topic này chưa có từ vựng</h3>
-        <p>Bấm nút <b>+ Thêm từ</b> ở góc trên để thêm từ mới, collocation và họ từ.</p>
+        <h3>${state.words.length === 0 ? 'Topic này chưa có từ vựng' : 'Không có từ nào trong bộ lọc này'}</h3>
+        <p>${state.words.length === 0 ? 'Bấm nút <b>+ Thêm từ</b> hoặc <b>📥 Nhập nhanh</b> để thêm từ mới.' : 'Thử chuyển sang mục <b>Tất cả</b> để xem toàn bộ từ.'}</p>
       </div>
     `;
     return;
@@ -245,7 +253,7 @@ function renderWords() {
             </tr>
           </thead>
           <tbody>
-            ${state.words
+            ${visibleWords
               .map(
                 (w) => `
               <tr>
@@ -268,7 +276,13 @@ function renderWords() {
                 <td>
                   <div class="item-stack">${w.wordFamilies.length ? w.wordFamilies.map(formatFamilyItem).join('') : '<span class="ipa-text">—</span>'}</div>
                 </td>
-                <td style="max-width: 240px;">${w.example ? escapeHtml(w.example) : '<span class="ipa-text">—</span>'}</td>
+                <td style="max-width: 260px;">
+                  ${
+                    w.example
+                      ? `<div class="item-line"><span>${escapeHtml(w.example)}</span> <button type="button" class="speak-btn" data-speak="${escapeHtml(w.example)}" title="Nghe câu ví dụ">🔊</button></div>`
+                      : '<span class="ipa-text">—</span>'
+                  }
+                </td>
                 <td>${masteredButtonHtml(w)}</td>
                 <td>
                   <div class="row-actions">
@@ -287,7 +301,7 @@ function renderWords() {
   } else {
     container.innerHTML = `
       <div class="vocab-cards">
-        ${state.words
+        ${visibleWords
           .map(
             (w) => `
           <article class="vocab-card">
@@ -340,7 +354,10 @@ function renderWords() {
             ${
               w.example
                 ? `<div class="card-section">
-                    <span class="card-section-label">Example</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                      <span class="card-section-label">Example</span>
+                      <button type="button" class="speak-btn" data-speak="${escapeHtml(w.example)}" title="Nghe câu ví dụ">🔊</button>
+                    </div>
                     <p class="example-quote">${escapeHtml(w.example)}</p>
                   </div>`
                 : ''
@@ -449,23 +466,45 @@ function openWordModal(wordObj = null) {
 }
 
 // --- Flashcard Mode ---
+function buildFlashcardsList() {
+  const onlyUnmastered = $('fc-only-unmastered').checked;
+  const list = onlyUnmastered ? state.words.filter((w) => !w.mastered) : [...state.words];
+  state.flashcards = list;
+  state.fcIndex = 0;
+  state.fcFlipped = false;
+}
+
 function openFlashcards() {
   if (state.words.length === 0) {
     alert('Topic này chưa có từ nào để ôn tập.');
     return;
   }
-  state.flashcards = [...state.words];
-  state.fcIndex = 0;
-  state.fcFlipped = false;
+  $('fc-only-unmastered').checked = false;
+  buildFlashcardsList();
   renderFlashcard();
   openModal('flashcard-modal');
 }
 
 function renderFlashcard() {
+  if (state.flashcards.length === 0) {
+    $('fc-progress').textContent = '0/0';
+    $('fc-front').classList.remove('hidden');
+    $('fc-back').classList.add('hidden');
+    $('fc-front').innerHTML = `<div class="ipa-text" style="text-align:center;">Tuyệt vời! Bạn đã thuộc hết các từ trong topic này.</div>`;
+    $('fc-toggle-mastered-btn').disabled = true;
+    $('fc-speak-btn').disabled = true;
+    return;
+  }
+
+  $('fc-toggle-mastered-btn').disabled = false;
+  $('fc-speak-btn').disabled = false;
   const w = state.flashcards[state.fcIndex];
   $('fc-progress').textContent = `${state.fcIndex + 1}/${state.flashcards.length}`;
   $('fc-front').classList.toggle('hidden', state.fcFlipped);
   $('fc-back').classList.toggle('hidden', !state.fcFlipped);
+
+  $('fc-toggle-mastered-btn').textContent = w.mastered ? '✓ Đã thuộc' : '○ Đánh dấu đã thuộc';
+  $('fc-toggle-mastered-btn').classList.toggle('tag-pos', w.mastered);
 
   $('fc-front').innerHTML = `
     <div class="fc-word-big">${escapeHtml(w.word)}</div>
@@ -478,6 +517,7 @@ function renderFlashcard() {
 
   $('fc-back').innerHTML = `
     <div class="vocab-card-meaning" style="text-align:center;">${escapeHtml(w.meaning)}</div>
+    ${w.synonyms.length ? `<div><strong>Từ dễ tương đương:</strong> ${w.synonyms.map((s) => `${escapeHtml(s.word)}${s.level ? ` (${escapeHtml(s.level)})` : ''}`).join(', ')}</div>` : ''}
     ${w.collocations.length ? `<div><strong>Collocation:</strong> ${w.collocations.map((c) => escapeHtml(c.phrase)).join(' • ')}</div>` : ''}
     ${w.wordFamilies.length ? `<div><strong>Họ từ:</strong> ${w.wordFamilies.map((f) => `${escapeHtml(f.word)} (${escapeHtml(f.pos)})`).join(', ')}</div>` : ''}
     ${w.example ? `<p class="example-quote">${escapeHtml(w.example)}</p>` : ''}
@@ -556,18 +596,38 @@ function startTest() {
   renderTestQuestion();
 }
 
+function makeBlankSentence(wordText, example) {
+  if (!example) return { blanked: null, expected: wordText };
+  const variants = wordText
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const variant of variants) {
+    const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+    if (regex.test(example)) {
+      return {
+        blanked: example.replace(regex, '______'),
+        expected: variant,
+      };
+    }
+  }
+  return { blanked: null, expected: variants[0] || wordText };
+}
+
 function renderTestQuestion() {
   const { items, index, mode } = state.test;
   const current = items[index];
   state.test.answered = false;
 
   $('test-progress-badge').textContent = `${index + 1}/${items.length}`;
-  $('test-q-meaning').textContent = current.meaning;
-  $('test-q-hint').textContent = `Gợi ý: (${current.pos}) • ${current.level}`;
   $('test-feedback').classList.add('hidden');
   $('test-next-btn').classList.add('hidden');
 
   if (mode === 'quiz') {
+    $('test-q-meaning').textContent = current.meaning;
+    $('test-q-hint').textContent = `Gợi ý: (${current.pos}) • ${current.level}`;
     $('test-quiz-options').classList.remove('hidden');
     $('test-type-form').classList.add('hidden');
 
@@ -583,7 +643,24 @@ function renderTestQuestion() {
     `
       )
       .join('');
+  } else if (mode === 'blank') {
+    const { blanked, expected } = makeBlankSentence(current.word, current.example);
+    state.test.expectedBlank = expected;
+    if (blanked) {
+      $('test-q-meaning').textContent = blanked;
+      $('test-q-hint').textContent = `Nghĩa: ${current.meaning} (${current.pos})`;
+    } else {
+      $('test-q-meaning').textContent = current.meaning;
+      $('test-q-hint').textContent = `Gợi ý: (${current.pos}) • ${current.level}`;
+    }
+    $('test-quiz-options').classList.add('hidden');
+    $('test-type-form').classList.remove('hidden');
+    $('test-type-input').value = '';
+    $('test-type-input').disabled = false;
+    setTimeout(() => $('test-type-input').focus(), 50);
   } else {
+    $('test-q-meaning').textContent = current.meaning;
+    $('test-q-hint').textContent = `Gợi ý: (${current.pos}) • ${current.level}`;
     $('test-quiz-options').classList.add('hidden');
     $('test-type-form').classList.remove('hidden');
     $('test-type-input').value = '';
@@ -889,11 +966,41 @@ document.querySelectorAll('.view-btn').forEach((btn) => {
   });
 });
 
+document.querySelectorAll('.filter-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    state.filterMode = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    renderWords();
+  });
+});
+
 document.querySelectorAll('[data-close-modal]').forEach((btn) => {
   btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
 });
 
 $('flashcard-btn').addEventListener('click', openFlashcards);
+$('fc-only-unmastered').addEventListener('change', () => {
+  buildFlashcardsList();
+  renderFlashcard();
+});
+$('fc-speak-btn').addEventListener('click', () => {
+  const w = state.flashcards[state.fcIndex];
+  if (w) speakEnglish(w.word);
+});
+$('fc-toggle-mastered-btn').addEventListener('click', async () => {
+  const w = state.flashcards[state.fcIndex];
+  if (!w) return;
+  const nextMastered = !w.mastered;
+  await api(`/api/words/${w.id}/mastered`, {
+    method: 'PATCH',
+    body: JSON.stringify({ mastered: nextMastered }),
+  });
+  w.mastered = nextMastered;
+  const inState = state.words.find((x) => x.id === w.id);
+  if (inState) inState.mastered = nextMastered;
+  renderWords();
+  renderFlashcard();
+});
 $('fc-card').addEventListener('click', () => {
   state.fcFlipped = !state.fcFlipped;
   renderFlashcard();
@@ -963,9 +1070,12 @@ $('test-type-form').addEventListener('submit', (e) => {
   if (state.test.answered) return;
   const current = state.test.items[state.test.index];
   const ans = $('test-type-input').value.trim().toLowerCase();
-  const expected = current.word.trim().toLowerCase();
+  const validAnswers = current.word
+    .split('/')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
   $('test-type-input').disabled = true;
-  handleTestAnswer(ans === expected, current);
+  handleTestAnswer(validAnswers.includes(ans), current);
 });
 
 $('test-feedback').addEventListener('click', (e) => {
