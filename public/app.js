@@ -1254,6 +1254,19 @@ $('test-next-btn').addEventListener('click', () => {
   }
 });
 
+document.addEventListener('keydown', (e) => {
+  if (
+    e.key === 'Enter' &&
+    !$('test-modal').classList.contains('hidden') &&
+    !$('test-run-step').classList.contains('hidden') &&
+    state.test.answered &&
+    !$('test-next-btn').classList.contains('hidden')
+  ) {
+    e.preventDefault();
+    $('test-next-btn').click();
+  }
+});
+
 $('test-remove-basket-btn').addEventListener('click', async () => {
   await Promise.all(
     state.test.correctIds.map((id) =>
