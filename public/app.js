@@ -684,6 +684,59 @@ function makeBlankSentence(wordText, example) {
   return { blanked: null, expected: variants[0] || wordText };
 }
 
+function setupLetterBoxes(targetPhrase) {
+  const cleanPhrase = String(targetPhrase || '').split('/')[0].trim();
+  const words = cleanPhrase.split(/\s+/).filter(Boolean);
+  const chars = [];
+  const groups = [];
+
+  words.forEach((w) => {
+    const indices = [];
+    for (const ch of w) {
+      indices.push(chars.length);
+      chars.push(ch);
+    }
+    groups.push(indices);
+  });
+
+  state.test.letterTarget = chars;
+  state.test.letterGroups = groups;
+  state.test.revealedIndices = new Set();
+  renderLetterBoxes();
+}
+
+function renderLetterBoxes() {
+  const { letterTarget = [], letterGroups = [], revealedIndices = new Set() } = state.test;
+  const typed = ($('test-type-input').value || '').replace(/\s+/g, '');
+
+  $('test-letter-boxes').innerHTML = letterGroups
+    .map(
+      (group) => `
+    <div class="letter-word-group">
+      ${group
+        .map((idx) => {
+          const typedChar = typed[idx] || '';
+          const isRevealed = revealedIndices.has(idx);
+          const isActive = idx === typed.length && !state.test.answered;
+          let display = '';
+          let cls = 'letter-box';
+          if (typedChar) {
+            display = typedChar;
+            cls += ' is-filled';
+          } else if (isRevealed) {
+            display = letterTarget[idx];
+            cls += ' is-hint';
+          }
+          if (isActive) cls += ' is-active';
+          return `<button type="button" class="${cls}" data-box-idx="${idx}" title="Chạm để mở gợi ý chữ cái">${escapeHtml(display)}</button>`;
+        })
+        .join('')}
+    </div>
+  `
+    )
+    .join('');
+}
+
 function renderTestQuestion() {
   const { items, index, mode } = state.test;
   const current = items[index];
@@ -726,6 +779,7 @@ function renderTestQuestion() {
     $('test-type-form').classList.remove('hidden');
     $('test-type-input').value = '';
     $('test-type-input').disabled = false;
+    setupLetterBoxes(expected || current.word);
     setTimeout(() => $('test-type-input').focus(), 50);
   } else {
     $('test-q-meaning').textContent = current.meaning;
@@ -734,6 +788,7 @@ function renderTestQuestion() {
     $('test-type-form').classList.remove('hidden');
     $('test-type-input').value = '';
     $('test-type-input').disabled = false;
+    setupLetterBoxes(current.word);
     setTimeout(() => $('test-type-input').focus(), 50);
   }
 }
@@ -1138,17 +1193,46 @@ $('test-quiz-options').addEventListener('click', (e) => {
   handleTestAnswer(isCorrect, current);
 });
 
+$('test-type-input').addEventListener('input', () => {
+  renderLetterBoxes();
+});
+
+$('test-letter-boxes').addEventListener('click', (e) => {
+  if (state.test.answered) return;
+  const box = e.target.closest('[data-box-idx]');
+  if (box) {
+    const idx = Number(box.dataset.boxIdx);
+    state.test.revealedIndices?.add(idx);
+    renderLetterBoxes();
+  }
+  $('test-type-input').focus();
+});
+
+$('test-hint-btn').addEventListener('click', () => {
+  if (state.test.answered) return;
+  const { letterTarget = [], revealedIndices = new Set() } = state.test;
+  const typed = ($('test-type-input').value || '').replace(/\s+/g, '');
+  for (let i = 0; i < letterTarget.length; i++) {
+    if (!typed[i] && !revealedIndices.has(i)) {
+      revealedIndices.add(i);
+      break;
+    }
+  }
+  renderLetterBoxes();
+  $('test-type-input').focus();
+});
+
 $('test-type-form').addEventListener('submit', (e) => {
   e.preventDefault();
   if (state.test.answered) return;
   const current = state.test.items[state.test.index];
-  const ans = $('test-type-input').value.trim().toLowerCase();
+  const ansNoSpace = $('test-type-input').value.trim().toLowerCase().replace(/\s+/g, '');
   const validAnswers = current.word
     .split('/')
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim().toLowerCase().replace(/\s+/g, ''))
     .filter(Boolean);
   $('test-type-input').disabled = true;
-  handleTestAnswer(validAnswers.includes(ans), current);
+  handleTestAnswer(validAnswers.includes(ansNoSpace), current);
 });
 
 $('test-feedback').addEventListener('click', (e) => {

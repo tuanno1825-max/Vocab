@@ -318,8 +318,12 @@
 
           <form id="test-type-form" class="hidden">
             <div class="field">
-              <label for="test-type-input">Nhập từ tiếng Anh tương ứng</label>
-              <input id="test-type-input" type="text" autocomplete="off" placeholder="Gõ từ tiếng Anh..." />
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                <label for="test-type-input">Gõ từ (chạm vào ô trống để mở gợi ý chữ cái)</label>
+                <button type="button" id="test-hint-btn" class="btn btn-sm btn-outline">💡 Gợi ý 1 chữ</button>
+              </div>
+              <div id="test-letter-boxes" class="letter-boxes" aria-label="Ô chữ cái"></div>
+              <input id="test-type-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Gõ các chữ cái tại đây..." />
             </div>
             <button type="submit" class="btn btn-primary btn-full">Kiểm tra</button>
           </form>
