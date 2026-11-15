@@ -16,7 +16,7 @@ const INITIAL_ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const INITIAL_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const AI_API_KEY = process.env.AI_API_KEY || '';
 const AI_BASE_URL = (process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
-const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
+const AI_MODEL = process.env.AI_MODEL || 'openai/gpt-oss-20b';
 
 // --- Mongoose Models ---
 const userSchema = new mongoose.Schema(
