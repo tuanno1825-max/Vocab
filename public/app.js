@@ -4,6 +4,7 @@ const state = {
   topics: [],
   activeTopicId: null,
   words: [],
+  basketWords: [],
   viewMode: window.innerWidth < 900 ? 'cards' : 'table',
   filterMode: 'all',
   searchQuery: '',
@@ -110,7 +111,14 @@ async function showApp() {
   const isAdmin = state.user.role === 'admin';
   $('user-role-label').textContent = isAdmin ? 'Quản trị viên' : 'Tài khoản cá nhân';
   $('open-admin-btn').classList.toggle('hidden', !isAdmin);
-  await loadTopics();
+  await Promise.all([loadTopics(), loadBasket()]);
+}
+
+async function loadBasket() {
+  const data = await api('/api/words/basket');
+  state.basketWords = data.words || [];
+  $('basket-count').textContent = String(state.basketWords.length);
+  $('basket-modal-count').textContent = `${state.basketWords.length} từ`;
 }
 
 // --- Topics ---
@@ -197,15 +205,14 @@ function formatSynonymItem(s) {
   return `<span class="tag">${escapeHtml(s.word)}${lvl}</span>`;
 }
 
-function masteredButtonHtml(w) {
-  return `<button type="button" class="mastered-btn ${w.mastered ? 'is-mastered' : ''}" data-toggle-mastered="${escapeHtml(w.id)}" title="Đánh dấu đã thuộc / chưa thuộc">
-    ${w.mastered ? '✓ Đã thuộc' : '○ Chưa thuộc'}
+function basketButtonHtml(w) {
+  return `<button type="button" class="mastered-btn ${w.inTestBasket ? 'is-mastered' : ''}" data-toggle-basket="${escapeHtml(w.id)}" title="Thêm hoặc bỏ khỏi Giỏ Test riêng">
+    ${w.inTestBasket ? '✓ Trong giỏ' : '🛒 + Giỏ Test'}
   </button>`;
 }
 
 function getFilteredWords() {
-  if (state.filterMode === 'unmastered') return state.words.filter((w) => !w.mastered);
-  if (state.filterMode === 'mastered') return state.words.filter((w) => w.mastered);
+  if (state.filterMode === 'basket') return state.words.filter((w) => w.inTestBasket);
   return state.words;
 }
 
@@ -248,7 +255,7 @@ function renderWords() {
               <th>COLLOCATION</th>
               <th>HỌ TỪ</th>
               <th>EXAMPLE</th>
-              <th>TRẠNG THÁI</th>
+              <th>GIỎ TEST</th>
               <th></th>
             </tr>
           </thead>
@@ -283,7 +290,7 @@ function renderWords() {
                       : '<span class="ipa-text">—</span>'
                   }
                 </td>
-                <td>${masteredButtonHtml(w)}</td>
+                <td>${basketButtonHtml(w)}</td>
                 <td>
                   <div class="row-actions">
                     <button type="button" class="icon-btn" data-edit-word="${escapeHtml(w.id)}" title="Sửa">✏️</button>
@@ -316,7 +323,7 @@ function renderWords() {
                 ${w.ipa ? `<div class="ipa-text">${escapeHtml(w.ipa)}</div>` : ''}
               </div>
               <div class="row-actions">
-                ${masteredButtonHtml(w)}
+                ${basketButtonHtml(w)}
                 <button type="button" class="icon-btn" data-edit-word="${escapeHtml(w.id)}" title="Sửa">✏️</button>
                 <button type="button" class="icon-btn danger" data-delete-word="${escapeHtml(w.id)}" title="Xóa">🗑️</button>
               </div>
@@ -536,6 +543,9 @@ function openTestModal() {
     return;
   }
 
+  state.test.sourcePool = state.words;
+  const hasBasketInTopic = state.words.some((w) => w.inTestBasket);
+
   $('test-setup-step').classList.remove('hidden');
   $('test-run-step').classList.add('hidden');
   $('test-result-step').classList.add('hidden');
@@ -546,10 +556,10 @@ function openTestModal() {
       (w) => `
     <label class="test-check-item">
       <span class="test-check-left">
-        <input type="checkbox" value="${escapeHtml(w.id)}" ${w.mastered ? '' : 'checked'} />
+        <input type="checkbox" value="${escapeHtml(w.id)}" ${hasBasketInTopic ? (w.inTestBasket ? 'checked' : '') : 'checked'} />
         <span><strong>${escapeHtml(w.word)}</strong> <small class="ipa-text">— ${escapeHtml(w.meaning)}</small></span>
       </span>
-      <span class="tag ${w.mastered ? 'tag-pos' : ''}">${w.mastered ? 'Đã thuộc' : 'Chưa thuộc'}</span>
+      <span class="tag ${w.inTestBasket ? 'tag-pos' : ''}">${w.inTestBasket ? 'Trong giỏ' : 'Bình thường'}</span>
     </label>
   `
     )
@@ -557,6 +567,62 @@ function openTestModal() {
 
   updateTestSelectedCount();
   openModal('test-modal');
+}
+
+function openBasketTestModal() {
+  if (state.basketWords.length === 0) {
+    alert('Giỏ Test đang trống. Hãy bấm "+ Giỏ Test" ở những từ bạn chưa chắc chắn.');
+    return;
+  }
+
+  state.test.sourcePool = state.basketWords;
+  $('test-setup-step').classList.remove('hidden');
+  $('test-run-step').classList.add('hidden');
+  $('test-result-step').classList.add('hidden');
+  $('test-progress-badge').classList.add('hidden');
+
+  $('test-word-checklist').innerHTML = state.basketWords
+    .map(
+      (w) => `
+    <label class="test-check-item">
+      <span class="test-check-left">
+        <input type="checkbox" value="${escapeHtml(w.id)}" checked />
+        <span><strong>${escapeHtml(w.word)}</strong> <small class="ipa-text">— ${escapeHtml(w.meaning)}</small></span>
+      </span>
+      <span class="tag tag-pos">Trong giỏ</span>
+    </label>
+  `
+    )
+    .join('');
+
+  updateTestSelectedCount();
+  closeModal('basket-modal');
+  openModal('test-modal');
+}
+
+function renderBasketModal() {
+  $('basket-modal-count').textContent = `${state.basketWords.length} từ`;
+  if (state.basketWords.length === 0) {
+    $('basket-list').innerHTML = `<p style="padding: 16px; text-align:center; color: var(--text-muted); font-size: 13px;">Giỏ Test đang trống. Hãy bấm nút <b>🛒 + Giỏ Test</b> trên các từ bạn muốn ôn riêng.</p>`;
+    $('start-basket-test-btn').disabled = true;
+    $('clear-basket-btn').disabled = true;
+    return;
+  }
+  $('start-basket-test-btn').disabled = false;
+  $('clear-basket-btn').disabled = false;
+  $('basket-list').innerHTML = state.basketWords
+    .map(
+      (w) => `
+    <div class="test-check-item">
+      <span class="test-check-left">
+        <button type="button" class="speak-btn" data-speak="${escapeHtml(w.word)}" title="Nghe phát âm">🔊</button>
+        <span><strong>${escapeHtml(w.word)}</strong> <span class="tag">${escapeHtml(w.pos)}</span> <small class="ipa-text">— ${escapeHtml(w.meaning)}</small></span>
+      </span>
+      <button type="button" class="btn btn-sm btn-ghost" style="color: var(--danger);" data-remove-basket="${escapeHtml(w.id)}" title="Bỏ khỏi giỏ">✕</button>
+    </div>
+  `
+    )
+    .join('');
 }
 
 function shuffleArray(arr) {
@@ -577,12 +643,14 @@ function startTest() {
     return;
   }
 
-  const selectedWords = state.words.filter((w) => selectedIds.includes(w.id));
+  const pool = state.test.sourcePool || state.words;
+  const selectedWords = pool.filter((w) => selectedIds.includes(w.id));
   const mode = document.querySelector('input[name="test-mode"]:checked')?.value || 'quiz';
 
   state.test = {
+    sourcePool: pool,
     items: shuffleArray(selectedWords),
-    mode: mode === 'quiz' && state.words.length < 2 ? 'type' : mode,
+    mode: mode === 'quiz' && pool.length < 2 ? 'type' : mode,
     index: 0,
     correctIds: [],
     wrongItems: [],
@@ -631,7 +699,8 @@ function renderTestQuestion() {
     $('test-quiz-options').classList.remove('hidden');
     $('test-type-form').classList.add('hidden');
 
-    const distractors = shuffleArray(state.words.filter((w) => w.id !== current.id)).slice(0, 3);
+    const pool = state.test.sourcePool || state.words;
+    const distractors = shuffleArray(pool.filter((w) => w.id !== current.id)).slice(0, 3);
     const options = shuffleArray([current, ...distractors]);
 
     $('test-quiz-options').innerHTML = options
@@ -713,7 +782,10 @@ function showTestResult() {
         .join('')
     : '';
 
-  $('test-mark-mastered-btn').classList.toggle('hidden', state.test.correctIds.length === 0);
+  const hasCorrectInBasket = state.test.items.some(
+    (w) => w.inTestBasket && state.test.correctIds.includes(w.id)
+  );
+  $('test-remove-basket-btn').classList.toggle('hidden', !hasCorrectInBasket);
 }
 
 // --- Admin Modal ---
@@ -922,16 +994,16 @@ $('words-container').addEventListener('click', async (e) => {
     return;
   }
 
-  const masteredBtn = e.target.closest('[data-toggle-mastered]');
-  if (masteredBtn) {
-    const id = masteredBtn.dataset.toggleMastered;
+  const basketBtn = e.target.closest('[data-toggle-basket]');
+  if (basketBtn) {
+    const id = basketBtn.dataset.toggleBasket;
     const wordObj = state.words.find((w) => w.id === id);
     if (!wordObj) return;
-    await api(`/api/words/${id}/mastered`, {
+    await api(`/api/words/${id}/basket`, {
       method: 'PATCH',
-      body: JSON.stringify({ mastered: !wordObj.mastered }),
+      body: JSON.stringify({ inTestBasket: !wordObj.inTestBasket }),
     });
-    await loadTopics();
+    await Promise.all([loadWords(), loadBasket()]);
     return;
   }
 
@@ -1025,9 +1097,10 @@ $('test-btn').addEventListener('click', openTestModal);
 $('test-word-checklist').addEventListener('change', updateTestSelectedCount);
 
 $('test-pick-unmastered').addEventListener('click', () => {
-  const unmasteredIds = new Set(state.words.filter((w) => !w.mastered).map((w) => w.id));
+  const pool = state.test.sourcePool || state.words;
+  const basketIds = new Set(pool.filter((w) => w.inTestBasket).map((w) => w.id));
   $('test-word-checklist').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-    cb.checked = unmasteredIds.has(cb.value);
+    cb.checked = basketIds.has(cb.value);
   });
   updateTestSelectedCount();
 });
@@ -1097,17 +1170,50 @@ $('test-next-btn').addEventListener('click', () => {
   }
 });
 
-$('test-mark-mastered-btn').addEventListener('click', async () => {
+$('test-remove-basket-btn').addEventListener('click', async () => {
   await Promise.all(
     state.test.correctIds.map((id) =>
-      api(`/api/words/${id}/mastered`, { method: 'PATCH', body: JSON.stringify({ mastered: true }) })
+      api(`/api/words/${id}/basket`, { method: 'PATCH', body: JSON.stringify({ inTestBasket: false }) })
     )
   );
-  $('test-mark-mastered-btn').classList.add('hidden');
-  await loadTopics();
+  $('test-remove-basket-btn').classList.add('hidden');
+  await Promise.all([loadWords(), loadBasket()]);
 });
 
 $('test-retry-btn').addEventListener('click', openTestModal);
+
+// --- Basket Events ---
+$('basket-btn').addEventListener('click', async () => {
+  await loadBasket();
+  renderBasketModal();
+  openModal('basket-modal');
+});
+
+$('basket-list').addEventListener('click', async (e) => {
+  const speakBtn = e.target.closest('[data-speak]');
+  if (speakBtn) {
+    speakEnglish(speakBtn.dataset.speak);
+    return;
+  }
+  const remBtn = e.target.closest('[data-remove-basket]');
+  if (remBtn) {
+    await api(`/api/words/${remBtn.dataset.removeBasket}/basket`, {
+      method: 'PATCH',
+      body: JSON.stringify({ inTestBasket: false }),
+    });
+    await Promise.all([loadBasket(), loadWords()]);
+    renderBasketModal();
+  }
+});
+
+$('clear-basket-btn').addEventListener('click', async () => {
+  if (!confirm('Xóa toàn bộ từ khỏi Giỏ Test?')) return;
+  await api('/api/words/basket', { method: 'DELETE' });
+  await Promise.all([loadBasket(), loadWords()]);
+  renderBasketModal();
+});
+
+$('start-basket-test-btn').addEventListener('click', openBasketTestModal);
 
 // --- Admin Events ---
 $('open-admin-btn').addEventListener('click', () => {

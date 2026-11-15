@@ -72,6 +72,7 @@ const wordSchema = new mongoose.Schema(
     ],
     example: { type: String, default: '', trim: true },
     mastered: { type: Boolean, default: false },
+    inTestBasket: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -98,6 +99,7 @@ function serializeWord(doc) {
     wordFamilies: doc.wordFamilies || [],
     example: doc.example || '',
     mastered: Boolean(doc.mastered),
+    inTestBasket: Boolean(doc.inTestBasket),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -599,6 +601,35 @@ app.patch('/api/words/:id/mastered', requireAuth, async (req, res) => {
     return res.status(404).json({ error: 'Không tìm thấy từ vựng.' });
   }
   res.json({ word: serializeWord(updated) });
+});
+
+app.get('/api/words/basket', requireAuth, async (req, res) => {
+  const docs = await Word.find({ userId: req.user.id, inTestBasket: true })
+    .sort({ updatedAt: -1 })
+    .lean();
+  res.json({ words: docs.map(serializeWord) });
+});
+
+app.patch('/api/words/:id/basket', requireAuth, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(404).json({ error: 'Không tìm thấy từ vựng.' });
+  }
+  const inTestBasket = Boolean(req.body?.inTestBasket);
+  const updated = await Word.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { inTestBasket },
+    { new: true }
+  ).lean();
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Không tìm thấy từ vựng.' });
+  }
+  res.json({ word: serializeWord(updated) });
+});
+
+app.delete('/api/words/basket', requireAuth, async (req, res) => {
+  await Word.updateMany({ userId: req.user.id, inTestBasket: true }, { inTestBasket: false });
+  res.json({ ok: true });
 });
 
 app.delete('/api/words/:id', requireAuth, async (req, res) => {

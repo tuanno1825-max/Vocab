@@ -83,6 +83,7 @@
         </div>
 
         <div class="topbar-actions">
+          <button type="button" id="basket-btn" class="btn btn-outline btn-sm" title="Giỏ từ vựng cần Test riêng">🛒 Giỏ (<span id="basket-count">0</span>)</button>
           <button type="button" id="test-btn" class="btn btn-outline btn-sm" title="Kiểm tra từ vựng">📝 Test</button>
           <button type="button" id="flashcard-btn" class="btn btn-outline btn-sm" title="Ôn tập Flashcard">🎴 <span class="desktop-only">Ôn tập</span></button>
           <button type="button" id="export-csv-btn" class="btn btn-outline btn-sm desktop-only" title="Xuất file CSV mở bằng Excel">⬇ CSV</button>
@@ -100,8 +101,7 @@
         <div class="toolbar-right">
           <div class="view-toggle" role="group" aria-label="Lọc trạng thái">
             <button type="button" class="filter-btn active" data-filter="all">Tất cả</button>
-            <button type="button" class="filter-btn" data-filter="unmastered">Chưa thuộc</button>
-            <button type="button" class="filter-btn" data-filter="mastered">Đã thuộc</button>
+            <button type="button" class="filter-btn" data-filter="basket">Trong giỏ Test</button>
           </div>
           <span id="word-count-badge" class="count-badge">0 từ</span>
           <div class="view-toggle desktop-only" role="group" aria-label="Chế độ xem">
@@ -292,7 +292,7 @@
           <div class="test-select-actions">
             <span class="card-section-label">Chọn từ muốn test (<span id="test-selected-count">0</span>)</span>
             <div class="row-actions">
-              <button type="button" id="test-pick-unmastered" class="btn btn-sm btn-outline">Chưa thuộc</button>
+              <button type="button" id="test-pick-unmastered" class="btn btn-sm btn-outline">Trong giỏ</button>
               <button type="button" id="test-pick-all" class="btn btn-sm btn-outline">Tất cả</button>
               <button type="button" id="test-pick-none" class="btn btn-sm btn-ghost">Bỏ chọn</button>
             </div>
@@ -339,7 +339,7 @@
           </div>
           <div id="test-wrong-list" class="test-wrong-list"></div>
           <div class="modal-footer" style="flex-wrap: wrap;">
-            <button type="button" id="test-mark-mastered-btn" class="btn btn-outline hidden">✓ Đánh dấu câu đúng là Đã thuộc</button>
+            <button type="button" id="test-remove-basket-btn" class="btn btn-outline hidden">✓ Bỏ câu đúng khỏi Giỏ Test</button>
             <button type="button" id="test-retry-btn" class="btn btn-primary">Test lại</button>
           </div>
         </div>
@@ -383,6 +383,27 @@
         </form>
 
         <div id="admin-users-list" class="admin-users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BASKET MODAL -->
+  <div id="basket-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3>🛒 Giỏ Test riêng <span id="basket-modal-count" class="count-badge">0 từ</span></h3>
+        <button type="button" class="icon-btn modal-close" data-close-modal="basket-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="ipa-text" style="margin:0 0 10px;">Các từ bạn đánh dấu chưa chắc chắn từ mọi Topic sẽ tập trung ở đây.</p>
+        <div id="basket-list" class="test-checklist" style="max-height: 320px;"></div>
+        <div class="modal-footer" style="justify-content: space-between; flex-wrap: wrap;">
+          <button type="button" id="clear-basket-btn" class="btn btn-ghost" style="color: var(--danger);">Xóa sạch giỏ</button>
+          <div class="row-actions">
+            <button type="button" class="btn btn-ghost" data-close-modal="basket-modal">Đóng</button>
+            <button type="button" id="start-basket-test-btn" class="btn btn-primary">📝 Test ngay</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
